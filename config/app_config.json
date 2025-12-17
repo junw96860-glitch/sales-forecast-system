@@ -1,0 +1,62 @@
+{
+  "forecast": {
+    "decay_lambda": 0.0315,
+    "base_date_offset": 1,
+    "months_ahead": 12,
+    "show_stage_details": true,
+    "auto_refresh": true
+  },
+  "cost": {
+    "material_cost_rate": 0.3,
+    "labor_cost_rate": 0.4,
+    "admin_cost_rate": 0.15,
+    "material_ratios_by_line": {
+      "光谱设备/服务": 0.25,
+      "配液设备": 0.3,
+      "自动化项目": 0.4
+    },
+    "tax_rate": 0.06,
+    "default_payment_stages": {
+      "首付款比例": 50.0,
+      "次付款比例": 40.0,
+      "尾款比例": 0.0,
+      "质保金比例": 10.0
+    }
+  },
+  "cashflow": {
+    "current_cash": 356.66,
+    "months_ahead": 24
+  },
+  "budget": {
+    "start_month": "2024-01",
+    "end_month": "2027-07"
+  },
+  "compare": {
+    "start_month": "2025-01",
+    "end_month": "2025-12"
+  },
+  "display": {
+    "chart_height": 400,
+    "table_page_size": 10,
+    "show_empty_categories": false,
+    "color_palette": "default"
+  },
+  "data": {
+    "auto_save": true,
+    "cache_hours": 24,
+    "backup_count": 5,
+    "validate_on_save": true,
+    "show_data_source": true
+  },
+  "feishu": {
+    "app_id": "",
+    "app_secret": "******"
+  },
+  "business": {
+    "lines": [
+      "光谱设备/服务",
+      "配液设备",
+      "自动化项目"
+    ]
+  }
+}
