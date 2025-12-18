@@ -1,14 +1,18 @@
 # main.py - 销售预测系统主入口
 """
 简洁高端版首页 - UI 增强版
+修复：时区问题，使用北京时间（UTC+8）
 """
 
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import re
+
+# 北京时区 (UTC+8)
+BEIJING_TZ = timezone(timedelta(hours=8))
 
 # ============================================================
 # 0. 基础配置与检查 (保持逻辑不变)
@@ -157,9 +161,8 @@ with st.sidebar:
     st.markdown("---")
     show_user_info()
     st.markdown("---")
-    from datetime import timezone, timedelta
-    beijing_tz = timezone(timedelta(hours=8))
-    st.caption(f"上次更新: {datetime.now(beijing_tz).strftime('%H:%M')}")
+    # 使用北京时间
+    st.caption(f"上次更新: {datetime.now(BEIJING_TZ).strftime('%H:%M')}")
     
     if st.button("🔄 刷新全量数据", use_container_width=True):
         with st.spinner("正在同步飞书数据..."):
@@ -203,11 +206,13 @@ except Exception as e:
 col_hero, col_action = st.columns([3, 1])
 
 with col_hero:
-    hour = datetime.now().hour
+    # 使用北京时间
+    now_beijing = datetime.now(BEIJING_TZ)
+    hour = now_beijing.hour
     greeting = "早安" if hour < 12 else "午安" if hour < 18 else "晚上好"
     
     st.markdown(f'<div class="hero-title">{greeting}，咸蛋们</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="hero-subtitle">今天是 {datetime.now().strftime("%Y年%m月%d日")} · 让我们查看今日的业绩预测</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="hero-subtitle">今天是 {now_beijing.strftime("%Y年%m月%d日")} · 让我们查看今日的业绩预测</div>', unsafe_allow_html=True)
 
 # ============================================================
 # 5. 自定义 KPI 卡片区域
@@ -369,11 +374,10 @@ if not df.empty:
 # 页脚
 st.markdown("---")
 st.markdown(
-    """
+    f"""
     <div style='text-align: center; color: #94a3b8; font-size: 0.8rem;'>
         Sales Forecast System &copy; 2025 · Powered by Feishu & Streamlit
     </div>
     """, 
     unsafe_allow_html=True
-
 )
