@@ -1,13 +1,15 @@
 # pages/5_📊_Overall_Budget_Summary.py
 """
-全面预算汇总页面 - 修复版 V2
+全面预算汇总页面 - 修复版 V3
 
-修复内容：
-1. 更新人工成本字段名（金额、费用项目、费用类别、付款频率）
-2. 支持付款频率（月度、一次性、季度、年度）
-3. 纳入偶尔收支模块
-4. 与收入预测页面使用相同的付款节奏逻辑
-5. 时间段筛选生效
+会计口径：
+- 收入：交付时全额确认
+- 物料成本：交付时确认
+- 税额：交付时确认（基于收入）
+
+与现金流分析的区别：
+- 现金流分析是"现金口径"（按付款节奏）
+- 预算汇总是"会计口径"（按交付时间）
 """
 
 # === 认证检查（必须放在最开头）===
@@ -23,56 +25,14 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import datetime
+from datetime import timezone, timedelta
 import numpy as np
 from dateutil.relativedelta import relativedelta
 from utils.chart_formatter import inject_plotly_css
 from utils.display_helper import DisplayHelper
-import json
 
 # === 从持久化存储读取成本数据 ===
 from data.cost_data_service import cost_data_service
-
-# === 飞书客户端和付款节奏服务 ===
-from config import (
-    FEISHU_APP_ID,
-    FEISHU_APP_SECRET,
-    FEISHU_APP_TOKEN,
-    PAYMENT_SCHEDULE_TABLE_ID,
-)
-from data.feishu_client import FeishuClient
-
-# 导入付款模板
-try:
-    from payment_templates import (
-        get_template,
-        get_default_template_for_business,
-    )
-except ImportError:
-    PAYMENT_TEMPLATES = {
-        "标准三笔(5-4-1)": [
-            {"name": "首付款", "ratio": 0.5, "offset_months": -1, "base": "开始时间"},
-            {"name": "到货验收款", "ratio": 0.4, "offset_months": 0, "base": "交付时间"},
-            {"name": "质保金", "ratio": 0.1, "offset_months": 12, "base": "交付时间"},
-        ],
-        "四笔分期(3-3-3-1)": [
-            {"name": "首付款", "ratio": 0.3, "offset_months": 0, "base": "开始时间"},
-            {"name": "到货款", "ratio": 0.3, "offset_months": 0, "base": "交付时间"},
-            {"name": "验收款", "ratio": 0.3, "offset_months": 1, "base": "交付时间"},
-            {"name": "质保金", "ratio": 0.1, "offset_months": 12, "base": "交付时间"},
-        ],
-    }
-    DEFAULT_TEMPLATE_BY_BUSINESS = {
-        "光谱设备/服务": "标准三笔(5-4-1)",
-        "配液设备": "标准三笔(5-4-1)",
-        "自动化项目": "四笔分期(3-3-3-1)",
-    }
-    DEFAULT_TEMPLATE = "标准三笔(5-4-1)"
-    
-    def get_template(name):
-        return PAYMENT_TEMPLATES.get(name, PAYMENT_TEMPLATES[DEFAULT_TEMPLATE])
-    
-    def get_default_template_for_business(business_line):
-        return DEFAULT_TEMPLATE_BY_BUSINESS.get(business_line, DEFAULT_TEMPLATE)
 
 st.set_page_config(page_title="全面预算汇总", layout="wide")
 st.title("📊 全面预算汇总")
@@ -80,99 +40,8 @@ st.title("📊 全面预算汇总")
 inject_plotly_css()
 DisplayHelper.apply_global_styles()
 
-
-# ============================================================
-# 飞书客户端和付款节奏服务
-# ============================================================
-@st.cache_resource
-def get_feishu_client():
-    return FeishuClient(FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_APP_TOKEN)
-
-
-class PaymentScheduleService:
-    """付款节奏服务"""
-    
-    def __init__(self, client: FeishuClient, table_id: str):
-        self.client = client
-        self.table_id = table_id
-        self._cache = None
-
-    def load(self, force_refresh=False) -> pd.DataFrame:
-        if self._cache is not None and not force_refresh:
-            return self._cache
-        try:
-            records = self.client.get_records(self.table_id)
-            if records is None:
-                records = []
-        except Exception as e:
-            return pd.DataFrame()
-
-        if not records:
-            self._cache = pd.DataFrame()
-            return self._cache
-
-        rows = []
-        for item in records:
-            if item is None:
-                continue
-            fields = item.get("fields", {}) or {}
-            rows.append({
-                "record_id": fields.get("record_id", ""),
-                "template_name": fields.get("template_name", ""),
-                "payment_stages": fields.get("payment_stages", "[]"),
-            })
-        self._cache = pd.DataFrame(rows) if rows else pd.DataFrame()
-        return self._cache
-
-    def get_stages(self, source_record_id: str) -> tuple:
-        df = self.load()
-        if df.empty or "record_id" not in df.columns:
-            return "", []
-        hit = df[df["record_id"] == source_record_id]
-        if hit.empty:
-            return "", []
-        row = hit.iloc[0]
-        template_name = row.get("template_name", "")
-        stages_json = row.get("payment_stages", "[]")
-        try:
-            stages = json.loads(stages_json) if stages_json else []
-        except json.JSONDecodeError:
-            stages = []
-        return template_name, stages
-
-
-def apply_template_with_dates(template_stages, start_date, delivery_date):
-    """应用模板并计算具体日期"""
-    result = []
-    for stage in template_stages:
-        base = stage.get("base", "交付时间")
-        base_date = start_date if base == "开始时间" else delivery_date
-        offset = stage.get("offset_months", 0)
-        
-        pay_date = None
-        if base_date and pd.notna(base_date):
-            try:
-                base_dt = pd.to_datetime(base_date, errors="coerce")
-                if pd.notna(base_dt):
-                    pay_date = base_dt + relativedelta(months=offset)
-            except:
-                pass
-        
-        result.append({
-            "name": stage.get("name", ""),
-            "ratio": stage.get("ratio", 0),
-            "date": pay_date,
-        })
-    return result
-
-
-def timestamp_to_date(ts):
-    if ts is None or pd.isna(ts):
-        return None
-    try:
-        return pd.to_datetime(ts, unit="ms")
-    except:
-        return None
+# 北京时区
+BEIJING_TZ = timezone(timedelta(hours=8))
 
 
 # ============================================================
@@ -395,7 +264,7 @@ tax_rate = config_manager.render_tax_rate_ui(sidebar=True, header="")
 st.sidebar.divider()
 st.sidebar.subheader("📅 预算时间范围")
 
-today = datetime.date.today()
+today = datetime.datetime.now(BEIJING_TZ).date()
 default_start = today.replace(day=1)
 default_end = today + relativedelta(months=12)
 
@@ -421,7 +290,7 @@ occasional_costs = cost_data_service.get_occasional_items()
 
 
 # ============================================================
-# 计算物料成本和税额
+# 计算物料成本和税额（会计口径：交付时确认）
 # ============================================================
 from core.cost_calculator import CostCalculator
 
@@ -430,6 +299,7 @@ df = cost_calc.apply_material_cost(
     df=df, material_ratios=material_ratios, revenue_column="_final_amount",
     business_line_column="业务线", output_column="物料成本", default_ratio=0.30)
 
+# 税额基于收入（交付时确认）
 df['税额'] = df['_final_amount'] * tax_rate
 
 # 处理交付时间
@@ -444,80 +314,27 @@ else:
 
 
 # ============================================================
-# 使用统一付款节奏计算收入
-# ============================================================
-ps_service = PaymentScheduleService(get_feishu_client(), PAYMENT_SCHEDULE_TABLE_ID)
-
-all_cash_flows = []
-for _, row in df.iterrows():
-    record_id = row.get("record_id", "")
-    revenue = row.get("_final_amount", 0)
-    
-    if pd.isna(revenue) or revenue <= 0:
-        continue
-    
-    revenue = float(revenue)
-    customer = row.get("客户", "")
-    business_line = row.get("业务线", "")
-    start_date = row.get("开始时间")
-    delivery_date = row.get("交付时间") or row.get("预计截止时间")
-    
-    _, saved_stages = ps_service.get_stages(record_id)
-    
-    if saved_stages:
-        stages = saved_stages
-    else:
-        default_template_name = get_default_template_for_business(business_line)
-        template_def = get_template(default_template_name)
-        stages = apply_template_with_dates(template_def, start_date, delivery_date)
-    
-    for stage in stages:
-        ratio = stage.get("ratio", 0)
-        if ratio <= 0:
-            continue
-        
-        pay_date = None
-        if "date" in stage:
-            if isinstance(stage["date"], (pd.Timestamp, datetime.datetime)):
-                pay_date = stage["date"]
-            elif stage["date"]:
-                pay_date = timestamp_to_date(stage["date"])
-        
-        payment_amount = revenue * ratio
-        payment_month = pay_date.strftime('%Y-%m') if pay_date and pd.notna(pay_date) else ""
-        
-        all_cash_flows.append({
-            "项目名称": customer,
-            "业务线": business_line,
-            "现金流类型": stage.get("name", ""),
-            "金额": payment_amount,
-            "支付日期": pay_date,
-            "支付月份": payment_month,
-        })
-
-cash_flow_df = pd.DataFrame(all_cash_flows) if all_cash_flows else pd.DataFrame()
-
-
-# ============================================================
-# 预算汇总计算
+# 预算汇总计算（会计口径）
 # ============================================================
 
-# 期间内的收入（根据付款时间筛选）
+# 期间内的收入（会计口径：交付时全额确认）
+budget_start_str = budget_start.strftime('%Y-%m')
+budget_end_str = budget_end.strftime('%Y-%m')
+
 period_revenue = 0
-if not cash_flow_df.empty:
-    cash_flow_df['支付日期'] = pd.to_datetime(cash_flow_df['支付日期'], errors='coerce')
-    period_cf = cash_flow_df[
-        (cash_flow_df['支付月份'] >= budget_start.strftime('%Y-%m')) &
-        (cash_flow_df['支付月份'] <= budget_end.strftime('%Y-%m'))
+if '_交付月份' in df.columns:
+    period_df = df[
+        (df['_交付月份'] >= budget_start_str) &
+        (df['_交付月份'] <= budget_end_str)
     ]
-    period_revenue = period_cf['金额'].sum() if not period_cf.empty else 0
+    period_revenue = period_df['_final_amount'].sum() if not period_df.empty else 0
 
 # 期间内的成本
 period_labor = calculate_period_labor_cost(labor_costs, budget_start, budget_end)
 period_admin = calculate_period_admin_cost(admin_costs, budget_start, budget_end)
 period_occ_expense, period_occ_income = calculate_period_occasional(occasional_costs, budget_start, budget_end)
 
-# 期间内的物料成本和税额（按交付月份）
+# 期间内的物料成本和税额（会计口径：交付时确认）
 period_material = 0
 period_tax = 0
 if '_交付月份' in df.columns:
@@ -611,14 +428,14 @@ with col1:
 
 with col2:
     st.subheader("业务线收入")
-    if not cash_flow_df.empty and '业务线' in cash_flow_df.columns:
-        period_cf = cash_flow_df[
-            (cash_flow_df['支付月份'] >= budget_start.strftime('%Y-%m')) &
-            (cash_flow_df['支付月份'] <= budget_end.strftime('%Y-%m'))
+    if '_交付月份' in df.columns and '业务线' in df.columns:
+        period_df = df[
+            (df['_交付月份'] >= budget_start_str) &
+            (df['_交付月份'] <= budget_end_str)
         ]
-        if not period_cf.empty:
-            business_revenue = period_cf.groupby('业务线')['金额'].sum().reset_index()
-            business_revenue = business_revenue.rename(columns={'金额': '预算收入'})
+        if not period_df.empty:
+            business_revenue = period_df.groupby('业务线')['_final_amount'].sum().reset_index()
+            business_revenue = business_revenue.rename(columns={'_final_amount': '预算收入'})
             
             fig_business = px.pie(business_revenue, values='预算收入', names='业务线',
                                  title='业务线收入占比', hole=0.3)
@@ -635,19 +452,29 @@ st.header("📅 月度预算分布")
 # 构建月度汇总表
 monthly_summary = pd.DataFrame({'月份': budget_months})
 
-# 月度收入
-if not cash_flow_df.empty:
-    monthly_income = cash_flow_df.groupby('支付月份')['金额'].sum().reset_index()
-    monthly_income = monthly_income.rename(columns={'支付月份': '月份', '金额': '销售收入'})
-    monthly_summary = monthly_summary.merge(monthly_income, on='月份', how='left')
-
-monthly_summary['销售收入'] = monthly_summary.get('销售收入', 0).fillna(0)
-
-# 月度成本
-monthly_labor_list = []
-monthly_admin_list = []
+# 月度收入（会计口径：交付时全额确认）
+monthly_revenue_list = []
 monthly_material_list = []
 monthly_tax_list = []
+
+for month_str in budget_months:
+    if '_交付月份' in df.columns:
+        month_df = df[df['_交付月份'] == month_str]
+        monthly_revenue_list.append(month_df['_final_amount'].sum() if not month_df.empty else 0)
+        monthly_material_list.append(month_df['物料成本'].sum() if not month_df.empty else 0)
+        monthly_tax_list.append(month_df['税额'].sum() if not month_df.empty else 0)
+    else:
+        monthly_revenue_list.append(0)
+        monthly_material_list.append(0)
+        monthly_tax_list.append(0)
+
+monthly_summary['销售收入'] = monthly_revenue_list
+monthly_summary['物料成本'] = monthly_material_list
+monthly_summary['税额'] = monthly_tax_list
+
+# 月度其他成本
+monthly_labor_list = []
+monthly_admin_list = []
 monthly_occ_expense_list = []
 monthly_occ_income_list = []
 
@@ -655,22 +482,12 @@ for month_str in budget_months:
     monthly_labor_list.append(get_monthly_labor_cost(labor_costs, month_str))
     monthly_admin_list.append(get_monthly_admin_cost(admin_costs, month_str))
     
-    if '_交付月份' in df.columns:
-        month_df = df[df['_交付月份'] == month_str]
-        monthly_material_list.append(month_df['物料成本'].sum() if not month_df.empty else 0)
-        monthly_tax_list.append(month_df['税额'].sum() if not month_df.empty else 0)
-    else:
-        monthly_material_list.append(0)
-        monthly_tax_list.append(0)
-    
     occ_exp, occ_inc = get_monthly_occasional(occasional_costs, month_str)
     monthly_occ_expense_list.append(occ_exp)
     monthly_occ_income_list.append(occ_inc)
 
 monthly_summary['人工成本'] = monthly_labor_list
 monthly_summary['费用支出'] = monthly_admin_list
-monthly_summary['物料成本'] = monthly_material_list
-monthly_summary['税额'] = monthly_tax_list
 monthly_summary['偶尔支出'] = monthly_occ_expense_list
 monthly_summary['偶尔所得'] = monthly_occ_income_list
 
@@ -736,10 +553,9 @@ tab1, tab2, tab3 = st.tabs(["💼 人工成本", "🏢 费用支出", "💫 偶�
 
 with tab1:
     if not labor_costs.empty:
-        # 使用新字段名
         display_cols = []
-        if '费用类别' in labor_costs.columns:
-            display_cols.append('费用类别')
+        if '成本类型' in labor_costs.columns:
+            display_cols.append('成本类型')
         if '费用项目' in labor_costs.columns:
             display_cols.append('费用项目')
         if '金额' in labor_costs.columns:
@@ -751,22 +567,15 @@ with tab1:
         if '结束日期' in labor_costs.columns:
             display_cols.append('结束日期')
         
-        # 兼容旧字段
-        if not display_cols:
-            display_cols = [c for c in ['成本类型', '人员/部门', '月度成本', '开始日期', '结束日期'] if c in labor_costs.columns]
-        
         if display_cols:
             display_labor = labor_costs[display_cols].copy()
             format_dict = {}
             if '金额' in display_cols:
                 format_dict['金额'] = '¥{:.2f}万'
-            if '月度成本' in display_cols:
-                format_dict['月度成本'] = '¥{:.2f}万'
             st.dataframe(display_labor.style.format(format_dict), use_container_width=True)
         
-        # 按类型汇总
-        group_col = '费用类别' if '费用类别' in labor_costs.columns else ('成本类型' if '成本类型' in labor_costs.columns else None)
-        amount_col = '金额' if '金额' in labor_costs.columns else ('月度成本' if '月度成本' in labor_costs.columns else None)
+        group_col = '成本类型' if '成本类型' in labor_costs.columns else None
+        amount_col = '金额' if '金额' in labor_costs.columns else None
         
         if group_col and amount_col:
             labor_summary = labor_costs.groupby(group_col)[amount_col].sum().reset_index()
@@ -800,7 +609,6 @@ with tab3:
             format_dict = {'金额': '¥{:.2f}万'} if '金额' in display_cols else {}
             st.dataframe(display_occ.style.format(format_dict), use_container_width=True)
         
-        # 汇总
         occ_summary = cost_data_service.get_occasional_summary(budget_start, budget_end)
         col1, col2, col3 = st.columns(3)
         col1.metric("期间偶尔支出", f"¥{occ_summary['支出']:,.2f}万")
@@ -808,3 +616,33 @@ with tab3:
         col3.metric("期间净额", f"¥{occ_summary['净额']:,.2f}万")
     else:
         st.info("暂无偶尔收支数据，请在 **💰 成本管理** 页面添加")
+
+st.divider()
+
+
+# ============================================================
+# 口径说明
+# ============================================================
+with st.expander("📖 数据口径说明"):
+    st.markdown("""
+    ### 预算汇总 - 会计口径
+    
+    | 项目 | 计算口径 | 说明 |
+    |------|----------|------|
+    | **销售收入** | 交付时间 | 项目交付时全额确认收入 |
+    | **物料成本** | 交付时间 | 项目交付时确认物料成本 |
+    | **税额** | 交付时间 | 基于收入计算，交付时确认 |
+    | **人工成本** | 月度 | 按有效期按月计算 |
+    | **费用支出** | 月度 | 按有效期按月计算 |
+    | **偶尔收支** | 发生日期 | 按实际发生日期 |
+    
+    ### 与现金流分析的区别
+    
+    | 页面 | 口径 | 适用场景 |
+    |------|------|----------|
+    | **预算汇总** | 会计口径 | 利润预测、财务报表 |
+    | **现金流分析** | 现金口径 | 现金规划、Runway分析 |
+    
+    - 预算汇总关注**何时确认收入/成本**（会计配比原则）
+    - 现金流分析关注**何时收到/支出现金**（现金流管理）
+    """)
