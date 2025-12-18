@@ -55,10 +55,19 @@ SALES_TABLES = {
 
 OVERRIDES_TABLE_ID: str = _get_secret("TABLE_ID_OVERRIDES")
 PAYMENT_SCHEDULE_TABLE_ID: str = _get_secret("TABLE_ID_PAYMENT")
+
+# ========================================
+# 工时统计表 ID
+# ========================================
 WORKTIME_TABLE_ID: str = _get_secret("WORKTIME_TABLE_ID")
 
 # ========================================
-# 市场推广表 ID（新增）
+# 订单现金流表 ID
+# ========================================
+ORDER_CASHFLOW_TABLE_ID: str = _get_secret("ORDER_CASHFLOW_TABLE_ID")
+
+# ========================================
+# 市场推广表 ID
 # ========================================
 MARKETING_TABLES = {
     "content": _get_secret("TABLE_ID_MARKETING_CONTENT"),    # 市场内容记录
@@ -145,6 +154,8 @@ def get_config_status() -> dict:
         },
         "overrides_table": "✅" if OVERRIDES_TABLE_ID else "❌",
         "payment_table": "✅" if PAYMENT_SCHEDULE_TABLE_ID else "❌",
+        "worktime_table": "✅" if WORKTIME_TABLE_ID else "❌",
+        "order_cashflow_table": "✅" if ORDER_CASHFLOW_TABLE_ID else "❌",
         "marketing_tables": {
             name: "✅" if table_id else "❌"
             for name, table_id in MARKETING_TABLES.items()
