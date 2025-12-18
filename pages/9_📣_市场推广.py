@@ -155,7 +155,7 @@ with tab1:
                     st.markdown("**三句话大纲**")
                     outline = sel_row.get("三句话大纲", "")
                     if outline:
-                        st.text_area("", value=outline, height=200, disabled=True, key="view_outline", label_visibility="collapsed")
+                        st.code(outline, language=None)
                     else:
                         st.caption("暂无大纲")
                 
@@ -165,7 +165,7 @@ with tab1:
                     data_content = sel_row.get("_data_raw", "") or sel_row.get("data", "")
                     
                     if data_content:
-                        st.text_area("", value=str(data_content), height=200, disabled=True, key="view_script", label_visibility="collapsed")
+                        st.code(str(data_content), language=None)
                     else:
                         st.caption("暂无脚本内容")
     else:
