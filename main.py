@@ -157,7 +157,9 @@ with st.sidebar:
     st.markdown("---")
     show_user_info()
     st.markdown("---")
-    st.caption(f"上次更新: {datetime.now().strftime('%H:%M')}")
+    from datetime import timezone, timedelta
+    beijing_tz = timezone(timedelta(hours=8))
+    st.caption(f"上次更新: {datetime.now(beijing_tz).strftime('%H:%M')}")
     
     if st.button("🔄 刷新全量数据", use_container_width=True):
         with st.spinner("正在同步飞书数据..."):
@@ -373,4 +375,5 @@ st.markdown(
     </div>
     """, 
     unsafe_allow_html=True
+
 )
