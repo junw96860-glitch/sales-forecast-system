@@ -1,8 +1,9 @@
 # pages/3_💰_Cost_Management.py
 """
-成本管理页面 - 优化版 v2
-人工成本分类：固定薪金、年终奖、社保&公积金、人力福利费、劳动关系补偿金、其他
-支持付款频率：月度/一次性/季度/年度
+成本管理页面 - 优化版 v3
+修复：
+1. 物料成本项目数量统计问题
+2. 费用支出图表与筛选器联动
 """
 
 from utils.page_init import init_page
@@ -10,6 +11,8 @@ init_page()
 
 import streamlit as st
 from data.data_manager import data_manager
+data_manager.set_state_store(st.session_state)
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -52,7 +55,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📦 物料成本", "💼 人工成本", "🏢 费用支出", "💫 偶尔收支", "🏛️ 税赋管理", "📊 成本分析", "⚙️ 数据管理"])
 
 # ============================================================
-# Tab 1: 物料成本
+# Tab 1: 物料成本（修复项目数量统计）
 # ============================================================
 with tab1:
     st.header("📦 物料成本估算")
@@ -65,10 +68,15 @@ with tab1:
     if df.empty:
         st.warning("⚠️ 暂无销售数据，无法估算物料成本")
     else:
+        # 处理交付时间
         if '交付时间' in df.columns:
             df['交付时间'] = pd.to_datetime(df['交付时间'], errors='coerce')
             df['_交付月份'] = df['交付时间'].dt.to_period('M').astype(str)
             df['_交付日期'] = df['交付时间'].dt.date
+        elif '预计截止时间' in df.columns:
+            df['预计截止时间'] = pd.to_datetime(df['预计截止时间'], errors='coerce')
+            df['_交付月份'] = df['预计截止时间'].dt.to_period('M').astype(str)
+            df['_交付日期'] = df['预计截止时间'].dt.date
         else:
             df['_交付月份'] = pd.Series(pd.NA, index=df.index, dtype="object")
             df['_交付日期'] = pd.NaT
@@ -77,24 +85,58 @@ with tab1:
         df = cost_calc.apply_material_cost(df=df, material_ratios=material_ratios, revenue_column="_final_amount",
             business_line_column="业务线", output_column="物料成本", default_ratio=0.30)
         
+        # 显示全部数据和筛选后数据
+        total_projects_all = len(df)
+        
+        # 时间筛选
         df_in_period = df.copy()
         if '_交付日期' in df.columns:
-            mask = (df['_交付日期'] >= analysis_start) & (df['_交付日期'] <= analysis_end)
-            df_in_period = df[mask]
+            # 转换为date类型进行比较
+            df_in_period['_交付日期'] = pd.to_datetime(df_in_period['_交付日期'], errors='coerce').dt.date
+            mask = df_in_period['_交付日期'].notna()
+            mask &= (df_in_period['_交付日期'] >= analysis_start) & (df_in_period['_交付日期'] <= analysis_end)
+            df_in_period = df_in_period[mask]
         
-        col1, col2, col3, col4 = st.columns(4)
+        # 核心指标
+        col1, col2, col3, col4, col5 = st.columns(5)
         total_material_cost = df_in_period['物料成本'].sum() if not df_in_period.empty else 0
         total_revenue = df_in_period['_final_amount'].sum() if not df_in_period.empty else 0
-        col1.metric("时段内物料成本", f"¥{total_material_cost:,.2f}万")
-        col2.metric("时段内收入", f"¥{total_revenue:,.2f}万")
-        col3.metric("平均物料成本率", f"{(total_material_cost/total_revenue*100) if total_revenue > 0 else 0:.1f}%")
-        col4.metric("项目数量", len(df_in_period))
+        
+        col1.metric("全部项目数", total_projects_all)
+        col2.metric("时段内项目数", len(df_in_period))
+        col3.metric("时段内物料成本", f"¥{total_material_cost:,.2f}万")
+        col4.metric("时段内收入", f"¥{total_revenue:,.2f}万")
+        col5.metric("平均物料成本率", f"{(total_material_cost/total_revenue*100) if total_revenue > 0 else 0:.1f}%")
+
+        # 显示筛选信息
+        st.info(f"📅 当前筛选时段：{analysis_start} 至 {analysis_end}，共 {len(df_in_period)} 个项目在此期间交付")
 
         if not df_in_period.empty and '业务线' in df_in_period.columns:
-            material_dist = df_in_period.groupby('业务线')['物料成本'].sum().reset_index()
-            if not material_dist.empty:
-                fig = px.pie(material_dist, values='物料成本', names='业务线', title='物料成本业务线分布', hole=0.3)
-                st.plotly_chart(fig, use_container_width=True)
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                material_dist = df_in_period.groupby('业务线')['物料成本'].sum().reset_index()
+                if not material_dist.empty:
+                    fig = px.pie(material_dist, values='物料成本', names='业务线', title='物料成本业务线分布', hole=0.3)
+                    st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                # 项目数量分布
+                project_count = df_in_period.groupby('业务线').size().reset_index(name='项目数量')
+                if not project_count.empty:
+                    fig = px.bar(project_count, x='业务线', y='项目数量', title='各业务线项目数量', 
+                                color='业务线', text='项目数量')
+                    fig.update_traces(textposition='outside')
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        # 显示项目明细
+        with st.expander("📋 查看时段内项目明细"):
+            display_cols = ['客户', '业务线', '_final_amount', '物料成本', '_交付日期']
+            display_cols = [c for c in display_cols if c in df_in_period.columns]
+            if display_cols:
+                show_df = df_in_period[display_cols].copy()
+                show_df.columns = ['客户', '业务线', '预测收入', '物料成本', '交付日期'][:len(display_cols)]
+                st.dataframe(show_df, use_container_width=True, hide_index=True)
 
 # ============================================================
 # Tab 2: 人工成本（优化版）
@@ -230,7 +272,7 @@ with tab2:
         st.markdown("**人工成本分类：**" + "、".join(LABOR_COST_TYPES))
 
 # ============================================================
-# Tab 3: 费用支出
+# Tab 3: 费用支出（优化图表联动）
 # ============================================================
 with tab3:
     st.header("🏢 费用支出管理")
@@ -276,27 +318,41 @@ with tab3:
 
     if not admin_costs_df.empty:
         st.markdown("---")
+        
+        # ========== 筛选器 ==========
+        st.markdown("##### 🔍 筛选")
         col_f1, col_f2, col_f3 = st.columns([2, 2, 3])
         with col_f1:
-            all_pri = ["全部"] + admin_costs_df['一级分类'].dropna().unique().tolist() if '一级分类' in admin_costs_df.columns else ["全部"]
-            filter_pri = st.selectbox("按分类筛选", all_pri, key="filter_primary")
+            all_pri = ["全部"] + sorted(admin_costs_df['一级分类'].dropna().unique().tolist()) if '一级分类' in admin_costs_df.columns else ["全部"]
+            filter_pri = st.selectbox("一级分类", all_pri, key="filter_primary")
         with col_f2:
+            # 二级分类根据一级分类动态变化
             if filter_pri != "全部" and '费用类型' in admin_costs_df.columns:
-                all_sec = ["全部"] + admin_costs_df[admin_costs_df['一级分类'] == filter_pri]['费用类型'].dropna().unique().tolist()
+                filtered_for_sec = admin_costs_df[admin_costs_df['一级分类'] == filter_pri]
+                all_sec = ["全部"] + sorted(filtered_for_sec['费用类型'].dropna().unique().tolist())
             else:
-                all_sec = ["全部"]
-            filter_sec = st.selectbox("按子类筛选", all_sec, key="filter_secondary")
+                all_sec = ["全部"] + sorted(admin_costs_df['费用类型'].dropna().unique().tolist()) if '费用类型' in admin_costs_df.columns else ["全部"]
+            filter_sec = st.selectbox("二级分类", all_sec, key="filter_secondary")
         with col_f3:
-            search = st.text_input("🔍 搜索", "", key="search_admin")
+            search = st.text_input("🔍 模糊搜索", "", key="search_admin", placeholder="搜索费用项目/分类/备注")
         
+        # 应用筛选
         filtered = admin_costs_df.copy()
         if filter_pri != "全部" and '一级分类' in filtered.columns:
             filtered = filtered[filtered['一级分类'] == filter_pri]
         if filter_sec != "全部" and '费用类型' in filtered.columns:
             filtered = filtered[filtered['费用类型'] == filter_sec]
-        if search and '费用项目' in filtered.columns:
-            filtered = filtered[filtered['费用项目'].str.contains(search, case=False, na=False)]
         
+        # 模糊搜索：搜索费用项目、一级分类、二级分类、备注
+        if search:
+            search_lower = search.lower()
+            mask = pd.Series([False] * len(filtered), index=filtered.index)
+            for col in ['费用项目', '一级分类', '费用类型', '备注']:
+                if col in filtered.columns:
+                    mask |= filtered[col].astype(str).str.lower().str.contains(search_lower, na=False)
+            filtered = filtered[mask]
+        
+        # 计算有效月数和期间成本
         def calc_admin_months(row):
             rs = pd.to_datetime(row['开始日期']).date() if pd.notna(row['开始日期']) else analysis_start
             re = pd.to_datetime(row['结束日期']).date() if pd.notna(row['结束日期']) else analysis_end
@@ -309,6 +365,86 @@ with tab3:
             admin_display['有效月数'] = admin_display.apply(calc_admin_months, axis=1)
             admin_display['期间总成本'] = admin_display['月度成本'] * admin_display['有效月数']
         
+        # ========== 汇总指标 ==========
+        st.markdown("---")
+        total_monthly = admin_display['月度成本'].sum() if not admin_display.empty else 0
+        total_period = admin_display['期间总成本'].sum() if not admin_display.empty else 0
+        
+        c1, c2, c3 = st.columns(3)
+        filter_desc = f"【{filter_pri}】" if filter_pri != "全部" else "【全部分类】"
+        c1.metric(f"{filter_desc} 月度费用", f"¥{total_monthly:,.2f}万")
+        c2.metric(f"{filter_desc} 期间总费用", f"¥{total_period:,.2f}万")
+        c3.metric("筛选后记录数", len(filtered))
+        
+        # ========== 图表（根据筛选联动）==========
+        st.markdown("---")
+        st.markdown("##### 📊 费用分布图表")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # 一级分类分布（或二级分类分布，取决于筛选）
+            if filter_pri == "全部":
+                # 显示一级分类分布
+                if '一级分类' in admin_display.columns and not admin_display.empty:
+                    chart_data = admin_display.groupby('一级分类')['期间总成本'].sum().reset_index()
+                    chart_data['期间总成本'] = chart_data['期间总成本'].round(2)  # 保留两位小数
+                    chart_data = chart_data[chart_data['期间总成本'] > 0].sort_values('期间总成本', ascending=False)
+                    if not chart_data.empty:
+                        fig = px.pie(chart_data, values='期间总成本', names='一级分类', 
+                                    title='💰 一级分类费用分布', hole=0.4)
+                        fig.update_traces(textposition='inside', textinfo='percent+label',
+                                         hovertemplate='%{label}<br>¥%{value:.2f}万<br>占比: %{percent}')
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info("暂无数据")
+            else:
+                # 选中了一级分类，显示该分类下的二级分类分布
+                if '费用类型' in admin_display.columns and not admin_display.empty:
+                    chart_data = admin_display.groupby('费用类型')['期间总成本'].sum().reset_index()
+                    chart_data['期间总成本'] = chart_data['期间总成本'].round(2)  # 保留两位小数
+                    chart_data = chart_data[chart_data['期间总成本'] > 0].sort_values('期间总成本', ascending=False)
+                    if not chart_data.empty:
+                        fig = px.pie(chart_data, values='期间总成本', names='费用类型', 
+                                    title=f'💰 【{filter_pri}】二级分类分布', hole=0.4)
+                        fig.update_traces(textposition='inside', textinfo='percent+label',
+                                         hovertemplate='%{label}<br>¥%{value:.2f}万<br>占比: %{percent}')
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info(f"【{filter_pri}】暂无数据")
+        
+        with col2:
+            # 条形图：显示TOP费用项目
+            if not admin_display.empty:
+                if filter_pri == "全部":
+                    # 显示各一级分类对比
+                    bar_data = admin_display.groupby('一级分类')['期间总成本'].sum().reset_index()
+                    bar_data['期间总成本'] = bar_data['期间总成本'].round(2)  # 保留两位小数
+                    bar_data = bar_data[bar_data['期间总成本'] > 0].sort_values('期间总成本', ascending=True)
+                    if not bar_data.empty:
+                        fig = px.bar(bar_data, x='期间总成本', y='一级分类', orientation='h',
+                                    title='📊 一级分类金额对比', color='一级分类', text='期间总成本')
+                        fig.update_traces(texttemplate='¥%{text:.2f}万', textposition='outside')
+                        fig.update_layout(showlegend=False)
+                        fig.update_xaxes(tickformat='.2f')
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    # 选中了一级分类，显示该分类下的二级分类对比
+                    bar_data = admin_display.groupby('费用类型')['期间总成本'].sum().reset_index()
+                    bar_data['期间总成本'] = bar_data['期间总成本'].round(2)  # 保留两位小数
+                    bar_data = bar_data[bar_data['期间总成本'] > 0].sort_values('期间总成本', ascending=True).tail(10)
+                    if not bar_data.empty:
+                        fig = px.bar(bar_data, x='期间总成本', y='费用类型', orientation='h',
+                                    title=f'📊 【{filter_pri}】二级分类金额对比', color='费用类型', text='期间总成本')
+                        fig.update_traces(texttemplate='¥%{text:.2f}万', textposition='outside')
+                        fig.update_layout(showlegend=False)
+                        fig.update_xaxes(tickformat='.2f')
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info(f"【{filter_pri}】暂无数据")
+        
+        # ========== 费用明细表 ==========
+        st.markdown("---")
         st.markdown(f"##### 📋 费用明细（共 {len(filtered)} 条）")
         
         if not admin_display.empty:
@@ -327,32 +463,6 @@ with tab3:
                 if st.button(f"🗑️ 删除选中（{len(selected)}条）", key="del_admin"):
                     for sid in selected: cost_data_service.delete_admin_cost(sid)
                     st.success("✅ 已删除"); st.rerun()
-        
-        st.markdown("---")
-        full = admin_costs_df.copy()
-        if not full.empty:
-            full['月度成本'] = full['月度成本'].apply(lambda x: float(x) if pd.notna(x) and x is not None else 0.0)
-            full['有效月数'] = full.apply(calc_admin_months, axis=1)
-            full['期间总成本'] = full['月度成本'] * full['有效月数']
-        
-        c1, c2, c3 = st.columns(3)
-        c1.metric("月度费用", f"¥{full['月度成本'].sum() if not full.empty else 0:,.2f}万")
-        c2.metric("期间总费用", f"¥{full['期间总成本'].sum() if not full.empty else 0:,.2f}万")
-        c3.metric("费用项数", len(admin_costs_df))
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if '一级分类' in full.columns and not full.empty:
-                ps = full.groupby('一级分类')['期间总成本'].sum().reset_index()
-                if not ps.empty:
-                    fig = px.pie(ps, values='期间总成本', names='一级分类', title='费用分布（一级分类）', hole=0.4)
-                    st.plotly_chart(fig, use_container_width=True)
-        with col2:
-            if '费用类型' in full.columns and not full.empty:
-                ts = full.groupby('费用类型')['期间总成本'].sum().reset_index().sort_values('期间总成本', ascending=True).tail(10)
-                if not ts.empty:
-                    fig = px.bar(ts, x='期间总成本', y='费用类型', orientation='h', title='费用TOP10（二级分类）')
-                    st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("📝 请添加费用支出数据")
         with st.expander("📂 查看费用分类体系", expanded=True):
@@ -524,6 +634,9 @@ with tab5:
         if '交付时间' in df.columns:
             df['交付时间'] = pd.to_datetime(df['交付时间'], errors='coerce')
             df['_交付日期'] = df['交付时间'].dt.date
+        elif '预计截止时间' in df.columns:
+            df['预计截止时间'] = pd.to_datetime(df['预计截止时间'], errors='coerce')
+            df['_交付日期'] = df['预计截止时间'].dt.date
         else:
             df['_交付日期'] = pd.NaT
         
@@ -557,6 +670,9 @@ with tab6:
     if '交付时间' in df.columns:
         df['交付时间'] = pd.to_datetime(df['交付时间'], errors='coerce')
         df['_交付日期'] = df['交付时间'].dt.date
+    elif '预计截止时间' in df.columns:
+        df['预计截止时间'] = pd.to_datetime(df['预计截止时间'], errors='coerce')
+        df['_交付日期'] = df['预计截止时间'].dt.date
     else:
         df['_交付日期'] = pd.NaT
     
