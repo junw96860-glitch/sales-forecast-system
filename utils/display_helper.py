@@ -116,6 +116,149 @@ class DisplayHelper:
         )
 
 
+
+        # --- UI-only theme override (v2) ---
+        st.markdown(
+            '''<style>
+/* ==========================
+   DS UI Theme v2 (UI-only)
+   ========================== */
+:root{
+  --ds-bg:#f8fafc;
+  --ds-card:#ffffff;
+  --ds-border:#e2e8f0;
+  --ds-text:#0f172a;
+  --ds-muted:#64748b;
+  --ds-primary:#0ea5e9;
+  --ds-primary-2:#38bdf8;
+  --ds-radius:14px;
+  --ds-radius-sm:12px;
+  --ds-shadow-sm:0 2px 10px rgba(2, 8, 23, .06);
+  --ds-shadow:0 10px 30px rgba(2, 8, 23, .10);
+}
+
+/* App background */
+html, body, [data-testid="stAppViewContainer"]{
+  background: var(--ds-bg);
+  color: var(--ds-text);
+}
+
+/* Main container spacing */
+section.main .block-container{
+  padding-top: 1.05rem;
+  padding-bottom: 2rem;
+  max-width: 1400px;
+}
+
+/* Headings */
+h1, h2, h3{
+  letter-spacing: -0.01em;
+}
+small, .stCaption{
+  color: var(--ds-muted) !important;
+}
+
+/* Cards for common blocks */
+div[data-testid="stMetric"]{
+  background: var(--ds-card) !important;
+  border: 1px solid var(--ds-border) !important;
+  border-radius: var(--ds-radius) !important;
+  box-shadow: var(--ds-shadow-sm) !important;
+  padding: 0.9rem 0.9rem !important;
+}
+div[data-testid="stMetric"]:hover{
+  box-shadow: var(--ds-shadow) !important;
+  transform: translateY(-1px);
+  transition: 120ms ease;
+}
+
+/* Dataframes / tables */
+div[data-testid="stDataFrame"], div[data-testid="stTable"]{
+  background: var(--ds-card);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  box-shadow: var(--ds-shadow-sm);
+  padding: .25rem .25rem;
+  overflow: hidden;
+}
+
+/* Expanders */
+div[data-testid="stExpander"] details{
+  background: var(--ds-card);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  box-shadow: var(--ds-shadow-sm);
+}
+div[data-testid="stExpander"] summary{
+  font-weight: 650;
+}
+
+/* Buttons */
+.stButton>button{
+  border-radius: 999px !important;
+  border: 1px solid var(--ds-border) !important;
+  background: var(--ds-card) !important;
+  color: var(--ds-text) !important;
+  font-weight: 650 !important;
+  padding: .55rem .9rem !important;
+}
+.stButton>button:hover{
+  border-color: var(--ds-primary-2) !important;
+  box-shadow: var(--ds-shadow-sm) !important;
+}
+.stButton>button:focus{
+  box-shadow: 0 0 0 3px rgba(14,165,233,.18) !important;
+}
+
+/* Inputs */
+div[data-baseweb="input"] input,
+div[data-baseweb="textarea"] textarea{
+  border-radius: var(--ds-radius-sm) !important;
+}
+div[data-baseweb="select"] > div{
+  border-radius: var(--ds-radius-sm) !important;
+}
+
+/* Tabs */
+button[data-baseweb="tab"]{
+  border-radius: 999px !important;
+  padding: .35rem .8rem !important;
+  margin-right: .35rem !important;
+}
+
+/* ========== Sidebar toggle (always visible) ========== */
+button[data-testid="collapsedControl"],
+div[data-testid="stSidebarCollapsedControl"] button{
+  position: fixed !important;
+  top: .75rem !important;
+  left: .75rem !important;
+  z-index: 1000000 !important;
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 12px !important;
+  background: rgba(255,255,255,.92) !important;
+  border: 1px solid var(--ds-border) !important;
+  box-shadow: var(--ds-shadow-sm) !important;
+  color: var(--ds-text) !important;
+  opacity: 1 !important;
+}
+button[data-testid="collapsedControl"]:hover,
+div[data-testid="stSidebarCollapsedControl"] button:hover{
+  background: #fff !important;
+}
+button[data-testid="collapsedControl"] svg,
+div[data-testid="stSidebarCollapsedControl"] button svg{
+  width: 20px !important;
+  height: 20px !important;
+  fill: currentColor !important;
+}
+button[data-testid="stSidebarCollapseButton"]{
+  border-radius: 12px !important;
+}
+
+</style>''',
+            unsafe_allow_html=True,
+        )
     @staticmethod
     def render_aggrid_table(
         dataframe: pd.DataFrame,
