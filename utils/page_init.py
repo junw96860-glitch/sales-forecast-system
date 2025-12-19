@@ -239,7 +239,8 @@ def render_sidebar_footer():
         if st.button("🔄 刷新全量数据", use_container_width=True, key="sidebar_refresh_btn"):
             with st.spinner("正在同步飞书数据..."):
                 data_manager.set_state_store(st.session_state)
-                data_manager.refresh_data()
+                data_manager.clear_cache()  # 清除缓存
+                data_manager.get_active_data(force_reload=True)  # 强制重新加载
             st.success("数据已更新")
             st.rerun()
 
