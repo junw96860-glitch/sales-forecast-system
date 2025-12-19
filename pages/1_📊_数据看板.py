@@ -1,27 +1,44 @@
-# pages/1_📊_Dashboard.py
+# pages/1_📊_数据看板.py
+"""
+数据看板 - 销售预测系统核心概览
+
+功能：
+- 关键指标展示（总收入、项目数、成单率）
+- 业务线收入分布
+- 月度收入趋势
+- 项目列表预览
+"""
+
+import streamlit as st
+
+# ⚠️ 页面配置必须是第一个 Streamlit 命令
+st.set_page_config(page_title="数据看板", layout="wide")
+
+# 认证和权限检查
 from utils.page_init import init_page
 init_page()
-import streamlit as st
+
+# 其他导入
 from data.data_manager import data_manager
 data_manager.set_state_store(st.session_state)
-import pandas as pd
 
-from data.data_manager import data_manager
+import pandas as pd
 from utils.chart_formatter import ChartFormatter, inject_plotly_css
 from utils.display_helper import DisplayHelper
 
 
 # ----------------------------
-# Page
+# 页面标题
 # ----------------------------
-st.set_page_config(page_title="首页仪表盘", layout="wide")
-st.title("🏠 首页仪表盘")
+st.title("📊 数据看板")
+st.caption("销售预测与预算系统的核心概览，所有金额基于纠偏后口径。")
 
 inject_plotly_css()
 DisplayHelper.apply_global_styles()
 
+
 # ----------------------------
-# Load data (single source of truth)
+# 加载数据
 # ----------------------------
 with st.spinner("🔄 正在加载销售数据..."):
     df = data_manager.get_active_data()
@@ -38,7 +55,7 @@ df = df.copy()
 
 
 # ----------------------------
-# Metrics (ONLY _final_amount)
+# 核心指标
 # ----------------------------
 total_projects = len(df)
 total_revenue_wan = pd.to_numeric(df["_final_amount"], errors="coerce").fillna(0).sum()
@@ -63,10 +80,10 @@ st.divider()
 
 
 # ----------------------------
-# Business split (ONLY _final_amount)
+# 业务线收入分布
 # ----------------------------
 if "业务线" in df.columns and df["业务线"].notna().any():
-    st.subheader("📈 各业务线收入贡献（最终口径，万元）")
+    st.subheader("📈 各业务线收入贡献（万元）")
 
     chart_type = st.radio(
         "展示方式",
@@ -90,13 +107,11 @@ st.divider()
 
 
 # ----------------------------
-# Monthly trend (ONLY _final_amount)
-# DataManager already creates _交付月份; just use it
+# 月度收入趋势
 # ----------------------------
-st.subheader("📅 月度收入预测趋势（按交付时间，最终口径，万元）")
+st.subheader("📅 月度收入预测趋势（按交付时间，万元）")
 
 if "_交付月份" not in df.columns:
-    # 兜底：极少数情况下 DataManager 没带出来，页面只做 display 补齐
     if "交付时间" in df.columns:
         dt = pd.to_datetime(df["交付时间"], errors="coerce")
         df["_交付月份"] = dt.dt.to_period("M").astype(str)
@@ -133,7 +148,7 @@ st.divider()
 
 
 # ----------------------------
-# Project list preview (RAW display only)
+# 项目列表预览
 # ----------------------------
 st.subheader(f"📋 项目列表预览（共 {len(df)} 条记录）")
 
@@ -147,12 +162,12 @@ RAW_COLUMNS_WHITELIST = [
 display_cols = [c for c in RAW_COLUMNS_WHITELIST if c in df.columns]
 preview_df = df[display_cols].copy()
 
-# 展示格式化（不改口径字段）
+# 日期格式化
 for col in ["开始时间", "预计截止时间", "交付时间"]:
     if col in preview_df.columns:
         preview_df[col] = pd.to_datetime(preview_df[col], errors="coerce").dt.strftime("%Y-%m-%d").fillna("")
 
-# 金额展示：只展示“金额”原始列，不影响 _final_amount
+# 金额格式化
 if "金额" in preview_df.columns:
     s = preview_df["金额"].astype(str)
     s = (
@@ -166,14 +181,14 @@ if "金额" in preview_df.columns:
     amt = pd.to_numeric(s, errors="coerce")
     preview_df["金额"] = amt.apply(lambda x: "" if pd.isna(x) else f"{x:,.2f}")
 
-# 关键：把 list/dict 转字符串，避免表格/去重等“不可 hash”坑
+# 列表/字典转字符串
 for col in ["交付内容", "当前进展"]:
     if col in preview_df.columns:
         preview_df[col] = preview_df[col].apply(
             lambda x: ", ".join(x) if isinstance(x, list) else ("" if pd.isna(x) else str(x))
         )
 
-
+# 渲染表格
 DisplayHelper.render_aggrid_table(
     preview_df,
     key="dashboard_project_list",
@@ -186,6 +201,7 @@ DisplayHelper.render_aggrid_table(
     return_mode="filtered",
 )
 
+# 下载功能
 with st.expander("📥 下载当前展示数据", expanded=False):
     DisplayHelper.create_download_button(
         dataframe=preview_df,
