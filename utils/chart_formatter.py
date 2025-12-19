@@ -16,23 +16,52 @@ class ChartFormatter:
     """Central place for Plotly styling and small helper utilities."""
 
     COLOR_PALETTE: Dict[str, List[str]] = {
-        "primary": ["#1890ff", "#52c41a", "#faad14", "#f5222d", "#722ed1", "#13c2c2"],
-        "pastel": ["#8ac6d1", "#ffe3ed", "#ffd1ba", "#ff9aa2", "#c7ceea", "#b5ead7"],
+        # Primary (enterprise): sky / green / amber / red / violet / teal
+        "primary": ["#0ea5e9", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#14b8a6"],
+        # Plotly default-like
+        "plotly": ["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A", "#19D3F3"],
+        # Okabe-Ito (colorblind safe)
+        "colorblind": ["#0072B2", "#E69F00", "#009E73", "#D55E00", "#CC79A7", "#56B4E9"],
+        # Pastel
+        "pastel": ["#8ac6d1", "#ffd1dc", "#ffe7a0", "#c7ceea", "#b5ead7", "#ffdac1"],
+        # Antique / muted
+        "antique": ["#4E79A7", "#59A14F", "#F28E2B", "#E15759", "#B07AA1", "#76B7B2"],
+        # Bold / high contrast
+        "bold": ["#111827", "#2563eb", "#16a34a", "#f97316", "#dc2626", "#7c3aed"],
+        # Safe neutrals + accents
+        "safe": ["#0ea5e9", "#334155", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6"],
     }
 
     FONT_SETTINGS = {
         "family": 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-        "color": "#262626",
+        "color": "#0f172a",
         "size": 12,
     }
 
     BASE_LAYOUT = {
+        "template": "plotly_white",
         "hovermode": "x unified",
         "paper_bgcolor": "rgba(0,0,0,0)",
         "plot_bgcolor": "rgba(0,0,0,0)",
-        "margin": {"l": 60, "r": 60, "t": 60, "b": 60},
+        "margin": {"l": 48, "r": 28, "t": 58, "b": 54},
         "font": FONT_SETTINGS,
-        "legend": {"orientation": "h", "yanchor": "bottom", "y": -0.25},
+        "legend": {"orientation": "h", "yanchor": "bottom", "y": -0.28, "x": 0.0, "xanchor": "left"},
+        "xaxis": {
+            "showgrid": True,
+            "gridcolor": "rgba(148,163,184,.22)",
+            "zeroline": False,
+            "showline": True,
+            "linecolor": "rgba(148,163,184,.35)",
+            "tickfont": {"size": 11},
+        },
+        "yaxis": {
+            "showgrid": True,
+            "gridcolor": "rgba(148,163,184,.22)",
+            "zeroline": False,
+            "showline": True,
+            "linecolor": "rgba(148,163,184,.35)",
+            "tickfont": {"size": 11},
+        },
     }
 
     # ------------------------------------------------------------------ #
@@ -221,6 +250,24 @@ def inject_plotly_css() -> None:
             box-shadow: 0 4px 10px rgba(0,0,0,0.15);
         }
         </style>
-        """,
+
+<style>
+/* Plotly UI polish (UI-only) */
+.js-plotly-plot .plotly .hoverlayer .hovertext{
+  border-radius: 10px !important;
+  box-shadow: 0 10px 24px rgba(2, 8, 23, .16) !important;
+}
+.js-plotly-plot .plotly .modebar{
+  background: rgba(255,255,255,.72) !important;
+  backdrop-filter: blur(6px);
+  border-radius: 12px !important;
+  box-shadow: 0 6px 18px rgba(2, 8, 23, .10) !important;
+  padding: 4px 6px !important;
+}
+.js-plotly-plot .plotly .modebar-btn{
+  border-radius: 10px !important;
+}
+</style>
+""",
         unsafe_allow_html=True,
     )
