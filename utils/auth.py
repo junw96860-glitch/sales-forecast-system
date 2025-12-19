@@ -96,30 +96,99 @@ def check_password() -> bool:
         return True
     
     # 显示登录界面
-    st.markdown("""
-    <style>
-    .login-container {
-        max-width: 400px;
-        margin: 100px auto;
-        padding: 40px;
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    }
-    .login-title {
-        text-align: center;
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #1e293b;
-        margin-bottom: 30px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
+
+    st.markdown(
+        """
+        <style>
+        /* =========================================================
+           Login UI (DS Pro) - UI only
+           ========================================================= */
+        :root{
+          --ds-bg:#f6f8fb;
+          --ds-card:#ffffff;
+          --ds-border:#e5e7eb;
+          --ds-text:#0f172a;
+          --ds-muted:#64748b;
+          --ds-primary:#0ea5e9;
+          --ds-primary-600:#0284c7;
+          --ds-primary-100:rgba(14,165,233,.12);
+          --ds-radius:16px;
+          --ds-shadow:0 18px 55px rgba(2, 8, 23, .14);
+          --ds-shadow-sm:0 6px 18px rgba(2, 8, 23, .08);
+        }
+
+        /* Hide sidebar during login (UI only) */
+        [data-testid="stSidebar"], [data-testid="collapsedControl"]{
+          display:none !important;
+        }
+
+        html, body, [data-testid="stAppViewContainer"]{
+          background:
+            radial-gradient(1200px 700px at 20% 0%, rgba(14,165,233,.14), transparent 55%),
+            radial-gradient(900px 600px at 95% 10%, rgba(59,130,246,.10), transparent 60%),
+            linear-gradient(180deg, #f8fafc 0%, var(--ds-bg) 100%);
+          color: var(--ds-text);
+        }
+
+        section.main .block-container{
+          padding-top: 2.5rem;
+          max-width: 1100px;
+        }
+
+        /* Login card wrapper (works across widgets) */
+        .login-shell:before{
+        display: none;  /* 直接隐藏这个装饰 */
+        }
+        .login-shell:before{
+          content:"";
+          position:absolute;
+          top:-120px; right:-120px;
+          width: 240px; height: 240px;
+          background: radial-gradient(circle at 30% 30%, rgba(14,165,233,.26), rgba(14,165,233,0));
+        }
+        .login-brand{ margin-bottom: 18px; position:relative; z-index:1; }
+        .login-title{
+          font-size: 2.1rem;
+          font-weight: 850;
+          letter-spacing: -0.02em;
+          margin: 0;
+          color: var(--ds-text);
+        }
+        .login-subtitle{
+          margin-top: .35rem;
+          font-size: .82rem;
+          color: var(--ds-muted);
+        }
+
+        /* Inputs */
+        div[data-baseweb="input"] input{
+          border-radius: 12px !important;
+          border: 1px solid rgba(148,163,184,.60) !important;
+          background: #ffffff !important;
+        }
+        div[data-baseweb="input"] input:focus{
+          box-shadow: 0 0 0 3px var(--ds-primary-100) !important;
+          border-color: rgba(14,165,233,.7) !important;
+        }
+
+        /* Buttons */
+        button[kind="primary"]{
+          background: linear-gradient(180deg, var(--ds-primary) 0%, var(--ds-primary-600) 100%) !important;
+          border: 1px solid rgba(2,132,199,.25) !important;
+        }
+        button[kind="primary"]:hover{
+          box-shadow: var(--ds-shadow-sm) !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.markdown('<div class="login-title">🔐 销售预测系统</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-shell">', unsafe_allow_html=True)
+        st.markdown('<div class="login-brand"><div class="login-title">咸数销售预测系统</div><div class="login-subtitle">现金流预测 · 收入预测 · 全面预算</div></div>', unsafe_allow_html=True)
         
         password = st.text_input("请输入访问密码", type="password", key="login_password")
         
@@ -137,6 +206,7 @@ def check_password() -> bool:
         
         st.markdown("---")
         st.caption("如需帮助，请联系管理员")
+        st.markdown("</div>", unsafe_allow_html=True)
     
     return False
 
@@ -226,20 +296,22 @@ def show_user_info():
         role_name = st.session_state.get("role_name", "用户")
         
         # 用户信息卡片
-        st.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 15px;
-            border-radius: 10px;
-            color: white;
-            margin-bottom: 10px;
-        ">
-            <div style="font-size: 14px; opacity: 0.9;">当前登录</div>
-            <div style="font-size: 18px; font-weight: bold;">👤 {role_name}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 显示权限范围
+        st.markdown(
+            f"""
+            <div class="ds-card" style="
+                padding: 14px 14px;
+                border-left: 4px solid #0ea5e9;
+                border-radius: 14px;
+                margin-bottom: 10px;
+            ">
+                <div style="font-size: 12px; color: #64748b; font-weight: 750;">当前登录</div>
+                <div style="font-size: 16px; color: #0f172a; font-weight: 850; margin-top: 2px;">{role_name}</div>
+                <div style="font-size: 12px; color: #64748b; margin-top: 2px;">角色：{role}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+# 显示权限范围
         config = ROLE_CONFIG.get(role, {})
         description = config.get("description", "")
         if description:
