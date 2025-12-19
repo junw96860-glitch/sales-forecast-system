@@ -52,100 +52,234 @@ data_manager.set_state_store(st.session_state)
 # ============================================================
 st.markdown("""
 <style>
-    /* 全局字体与背景 */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-    
+    /* ================================
+       Global tokens
+       ================================ */
+    :root {
+        --bg: #f8fafc;
+        --bg-2: #f1f5f9;
+        --card: #ffffff;
+        --text: #0f172a;
+        --muted: #64748b;
+        --border: rgba(15, 23, 42, 0.10);
+        --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+        --shadow-soft: 0 2px 10px rgba(15, 23, 42, 0.06);
+        --radius: 14px;
+        --radius-sm: 10px;
+        --accent-1: #2563eb;
+        --accent-2: #9333ea;
+    }
+
+    /* 字体（保持原有 Inter，但提供稳健降级） */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+
     html, body, [class*="css"] {
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+        color: var(--text);
     }
-    
+
+    /* App 背景 */
     .stApp {
-        background-color: #f8f9fa; /* 极浅的灰背景，减少视觉疲劳 */
+        background:
+            radial-gradient(900px 380px at 15% -10%, rgba(37, 99, 235, 0.12), transparent 60%),
+            radial-gradient(820px 360px at 95% 0%, rgba(147, 51, 234, 0.10), transparent 55%),
+            linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
     }
 
-    /* 顶部导航与边距调整 */
+    /* 主内容区边距与宽度 */
     .main .block-container {
-        padding-top: 2rem;
+        padding-top: 1.75rem;
         padding-bottom: 2rem;
-        max-width: 1280px;
+        max-width: 1360px;
     }
 
-    /* 标题样式 */
+    /* 顶部标题 */
     .hero-title {
-        font-size: 2.2rem;
-        font-weight: 800;
-        background: -webkit-linear-gradient(120deg, #2563eb, #9333ea);
+        font-size: 2.1rem;
+        font-weight: 850;
+        letter-spacing: -0.02em;
+        background: linear-gradient(120deg, var(--accent-1), var(--accent-2));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.45rem;
+        line-height: 1.12;
     }
     .hero-subtitle {
-        color: #64748b;
+        color: var(--muted);
         font-size: 1rem;
-        margin-bottom: 2rem;
+        margin-bottom: 1.6rem;
     }
 
-    /* 自定义 KPI 卡片 */
+    /* KPI 卡片（保留你的 class 名，统一细节） */
     .kpi-card {
-        background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-        border: 1px solid #e2e8f0;
-        transition: transform 0.2s;
+        background: var(--card);
+        border-radius: var(--radius);
+        padding: 1.25rem 1.25rem;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-soft);
+        transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
     }
     .kpi-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow);
+        border-color: rgba(37, 99, 235, 0.22);
     }
     .kpi-label {
-        color: #64748b;
-        font-size: 0.875rem;
-        font-weight: 600;
+        color: var(--muted);
+        font-size: 0.80rem;
+        font-weight: 750;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 0.5rem;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.55rem;
     }
     .kpi-value {
-        color: #1e293b;
-        font-size: 1.8rem;
-        font-weight: 700;
+        color: var(--text);
+        font-size: 1.9rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
     }
     .kpi-sub {
         font-size: 0.85rem;
-        margin-top: 0.5rem;
-        display: flex;
+        margin-top: 0.65rem;
+        display: inline-flex;
         align-items: center;
-        gap: 0.25rem;
+        gap: 0.35rem;
     }
-    .trend-up { color: #10b981; background: #ecfdf5; padding: 2px 6px; border-radius: 4px; }
-    .trend-neutral { color: #6366f1; background: #eef2ff; padding: 2px 6px; border-radius: 4px; }
-
-    /* 图表容器容器 */
-    .chart-container {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
-        height: 100%;
-    }
-    .section-header {
-        font-size: 1.1rem;
+    .trend-up {
+        color: #047857;
+        background: rgba(16, 185, 129, 0.12);
+        padding: 2px 8px;
+        border-radius: 999px;
         font-weight: 700;
-        color: #334155;
-        margin-bottom: 1rem;
+    }
+    .trend-neutral {
+        color: #3730a3;
+        background: rgba(99, 102, 241, 0.12);
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-weight: 700;
+    }
+
+    /* Section header（更紧凑，更像模块标题） */
+    .section-header {
+        font-size: 1.05rem;
+        font-weight: 820;
+        color: rgba(15, 23, 42, 0.92);
+        margin: 0.15rem 0 0.75rem 0;
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.55rem;
+        letter-spacing: -0.01em;
     }
-    
-    /* 去除 Streamlit 默认元素（保留header以显示导航） */
+
+    /* 自动把 Plotly / DataFrame 包装成“卡片” */
+    div[data-testid="stPlotlyChart"] > div,
+    div[data-testid="stDataFrame"] > div {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 0.75rem;
+        box-shadow: var(--shadow-soft);
+    }
+
+    /* DataFrame 顶部留白略调 */
+    div[data-testid="stDataFrame"] > div {
+        padding: 0.65rem 0.65rem 0.35rem 0.65rem;
+    }
+
+    /* 侧边栏：沿用你现有的品牌样式，但细节更统一 */
     footer {visibility: hidden;}
-    
-    /* 调整 Metric 间距 */
+
+    [data-testid="stSidebarNav"] > ul > li:first-child {
+        display: none;
+    }
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        border-right: 1px solid rgba(15, 23, 42, 0.06);
+    }
+
+    [data-testid="stSidebar"] .block-container {
+        padding-top: 1rem;
+    }
+
+    .sidebar-brand-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.15rem 1rem;
+        border-radius: 12px;
+        margin: 0.25rem 0 0.75rem 0;
+        text-align: center;
+        box-shadow: var(--shadow-soft);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    .sidebar-brand-icon {
+        font-size: 2rem;
+        margin-bottom: 0.35rem;
+        line-height: 1;
+        filter: drop-shadow(0 2px 6px rgba(0,0,0,0.20));
+    }
+    .sidebar-brand-title {
+        color: white;
+        font-size: 1.08rem;
+        font-weight: 800;
+        margin: 0;
+    }
+    .sidebar-brand-subtitle {
+        color: rgba(255,255,255,0.84);
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+    }
+
+    /* st.page_link 的链接统一胶囊样式 */
+    [data-testid="stSidebar"] [data-testid="stPageLink-NavLink"] {
+        border-radius: 10px !important;
+        padding: 0.55rem 0.75rem !important;
+        margin: 0.15rem 0 !important;
+        border: 1px solid rgba(15, 23, 42, 0.08) !important;
+        background: rgba(255, 255, 255, 0.55) !important;
+        font-weight: 650 !important;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+    [data-testid="stSidebar"] [data-testid="stPageLink-NavLink"]:hover {
+        background: rgba(255, 255, 255, 0.85) !important;
+        border-color: rgba(37, 99, 235, 0.22) !important;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        transform: translateY(-1px);
+    }
+    [data-testid="stSidebar"] [data-testid="stPageLink-NavLink"]:first-of-type {
+        background: linear-gradient(90deg, #f0f9ff 0%, #e0f2fe 100%) !important;
+        border: 2px solid #7dd3fc !important;
+        color: #0369a1 !important;
+        font-weight: 750 !important;
+    }
+
+    .sidebar-section-label {
+        color: #94a3b8;
+        font-size: 0.7rem;
+        font-weight: 750;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin: 1rem 0 0.5rem 0;
+        padding-left: 0.35rem;
+    }
+
+    /* 调整列间距（更像仪表盘栅格） */
     div[data-testid="column"] {
-        padding: 0.5rem;
+        padding: 0.35rem 0.5rem;
+    }
+
+    /* 小屏幕优化 */
+    @media (max-width: 900px) {
+        .main .block-container {
+            padding-top: 1.25rem;
+        }
+        .hero-title {
+            font-size: 1.75rem;
+        }
+        .kpi-value {
+            font-size: 1.6rem;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -154,13 +288,32 @@ st.markdown("""
 # 2. 侧边栏
 # ============================================================
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3094/3094918.png", width=50) # 示例Logo
-    st.title("Sales Force")
+    # === 品牌区域 ===
+    st.markdown("""
+    <div class="sidebar-brand-card">
+        <div class="sidebar-brand-icon">📊</div>
+        <div class="sidebar-brand-title">销售预测系统</div>
+        <div class="sidebar-brand-subtitle">Digital Salt · 数据驱动决策</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # === 首页入口（突出显示）===
+    st.page_link("main.py", label="🏠 首页总览", icon=None)
+    
+    # === 功能模块标签 ===
+    st.markdown("""
+    <div class="sidebar-section-label">📁 功能模块</div>
+    """, unsafe_allow_html=True)
+    
     st.markdown("---")
+    
+    # === 用户信息区域 ===
     show_user_info()
+    
     st.markdown("---")
-    # 使用北京时间
-    st.caption(f"上次更新: {datetime.now(BEIJING_TZ).strftime('%H:%M')}")
+    
+    # === 底部操作区 ===
+    st.caption(f"🕐 上次更新: {datetime.now(BEIJING_TZ).strftime('%H:%M')}")
     
     if st.button("🔄 刷新全量数据", use_container_width=True):
         with st.spinner("正在同步飞书数据..."):
