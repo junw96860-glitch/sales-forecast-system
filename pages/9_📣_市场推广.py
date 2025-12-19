@@ -9,6 +9,8 @@ from utils.page_init import init_page
 init_page()
 
 import streamlit as st
+from utils.display_helper import DisplayHelper
+from utils.chart_formatter import inject_plotly_css
 from data.data_manager import data_manager
 data_manager.set_state_store(st.session_state)
 
@@ -22,6 +24,8 @@ from data.marketing_service import marketing_service, safe_sum
 st.set_page_config(page_title="市场推广", layout="wide")
 st.title("📣 市场推广管理")
 
+inject_plotly_css()
+DisplayHelper.apply_global_styles()
 # 刷新按钮（清除缓存）
 col_title, col_refresh = st.columns([6, 1])
 with col_refresh:
