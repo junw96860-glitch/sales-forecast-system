@@ -11,6 +11,8 @@
 from utils.page_init import init_page
 init_page()
 import streamlit as st
+from utils.display_helper import DisplayHelper
+from utils.chart_formatter import inject_plotly_css
 from core.config_manager import config_manager
 from data.data_manager import data_manager
 
@@ -20,6 +22,8 @@ data_manager.set_state_store(st.session_state)
 st.set_page_config(page_title="系统设置", layout="wide")
 st.title("⚙️ 系统设置")
 
+inject_plotly_css()
+DisplayHelper.apply_global_styles()
 st.markdown("""
 > 这是系统的**统一配置入口**。所有配置项在此页面修改后会自动保存到 `config/app_config.json`，
 > 其他页面会自动读取这些配置。
