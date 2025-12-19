@@ -19,9 +19,11 @@ class ConfigUI:
         container = st.sidebar if sidebar else st
         if sidebar:
             st.sidebar.markdown("---")
-            st.sidebar.header("🔮 预测配置")
+            st.sidebar.markdown('<div class="cfg-section-title">🔮 预测配置</div>', unsafe_allow_html=True)
+            st.sidebar.markdown('<div class="cfg-section-subtitle">影响收入预测与时间风险折扣</div>', unsafe_allow_html=True)
         else:
-            st.header("🔮 预测配置")
+            st.markdown('### 🔮 预测配置')
+            st.markdown('<div class="cfg-section-subtitle">影响收入预测与时间风险折扣</div>', unsafe_allow_html=True)
 
         config = cm.get_config("forecast") or {}
 
@@ -76,9 +78,11 @@ class ConfigUI:
         container = st.sidebar if sidebar else st
         if sidebar:
             st.sidebar.markdown("---")
-            st.sidebar.header("💰 成本配置")
+            st.sidebar.markdown('<div class="cfg-section-title">💰 成本配置</div>', unsafe_allow_html=True)
+            st.sidebar.markdown('<div class="cfg-section-subtitle">控制材料/人工/其他成本的估算口径</div>', unsafe_allow_html=True)
         else:
-            st.header("💰 成本配置")
+            st.markdown('### 💰 成本配置')
+            st.markdown('<div class="cfg-section-subtitle">控制材料/人工/其他成本的估算口径</div>', unsafe_allow_html=True)
 
         config = cm.get_config("cost") or {}
 
@@ -135,9 +139,11 @@ class ConfigUI:
         container = st.sidebar if sidebar else st
         if sidebar:
             st.sidebar.markdown("---")
-            st.sidebar.header("💳 付款配置")
+            st.sidebar.markdown('<div class="cfg-section-title">💳 付款配置</div>', unsafe_allow_html=True)
+            st.sidebar.markdown('<div class="cfg-section-subtitle">默认收款分期比例（可在项目层覆盖）</div>', unsafe_allow_html=True)
         else:
-            st.header("💳 付款配置")
+            st.markdown("### 💳 付款配置")
+            st.markdown('<div class="cfg-section-subtitle">默认收款分期比例（可在项目层覆盖）</div>', unsafe_allow_html=True)
 
         config = cm.get_config("cost") or {}
         default_payment = config.get("default_payment_stages", {}) or {}
@@ -200,9 +206,11 @@ class ConfigUI:
         container = st.sidebar if sidebar else st
         if sidebar:
             st.sidebar.markdown("---")
-            st.sidebar.header("🎨 显示配置")
+            st.sidebar.markdown('<div class="cfg-section-title">🎨 显示配置</div>', unsafe_allow_html=True)
+            st.sidebar.markdown('<div class="cfg-section-subtitle">图表与表格的显示偏好</div>', unsafe_allow_html=True)
         else:
-            st.header("🎨 显示配置")
+            st.markdown("### 🎨 显示配置")
+            st.markdown('<div class="cfg-section-subtitle">图表与表格的显示偏好</div>', unsafe_allow_html=True)
 
         config = cm.get_config("display") or {}
 
