@@ -35,7 +35,6 @@ from config import (
     PAYMENT_SCHEDULE_TABLE_ID,
 )
 
-from data.data_manager import data_manager
 from data.feishu_client import FeishuClient
 from data.override_service import OverrideService
 
@@ -83,6 +82,7 @@ except ImportError:
 # ============================================================
 st.set_page_config(page_title="收入预测", layout="wide")
 st.title("📈 收入预测")
+st.caption("基于纠偏后金额的收入趋势、人工纠偏与付款节奏管理。")
 inject_plotly_css()
 if HAS_UI_UTILS:
     try:
@@ -288,7 +288,7 @@ if "_交付月份" in df.columns:
 # Section 1: Overrides
 # ============================================================
 st.divider()
-st.subheader("✏️ 人工纠偏（Overrides）")
+st.subheader("✏️ 人工纠偏")
 
 if "人工纠偏金额" not in df.columns:
     df["人工纠偏金额"] = pd.NA
