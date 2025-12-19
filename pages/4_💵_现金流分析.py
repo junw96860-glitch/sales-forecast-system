@@ -80,7 +80,7 @@ import json
 
 st.set_page_config(page_title="现金流分析", layout="wide")
 st.title("💵 现金流分析")
-
+st.caption("现金口径：按付款节奏展开收入，物料成本按交付前1个月，税额跟随回款。")  
 inject_plotly_css()
 DisplayHelper.apply_global_styles()
 
