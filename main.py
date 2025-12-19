@@ -140,10 +140,8 @@ st.markdown("""
         gap: 0.5rem;
     }
     
-    /* 去除 Streamlit 默认元素 */
-    #MainMenu {visibility: hidden;}
+    /* 去除 Streamlit 默认元素（保留header以显示导航） */
     footer {visibility: hidden;}
-    header {visibility: hidden;}
     
     /* 调整 Metric 间距 */
     div[data-testid="column"] {
